@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-y509*89uwqk(x_hu+la3sf7e++usm5(cre(%#xz8ee_lt!k7#$
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*']
 
 
 # Application definition
@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     "core",
 ]
 
@@ -75,14 +76,20 @@ WSGI_APPLICATION = 'alemno.wsgi.application'
 
 import os 
 
+def env_required(key, default=None):
+    val = os.getenv(key, default)
+    if val is None:
+        raise RuntimeError(f"Missing required environment variable: {key}")
+    return val
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ['POSTGRES_DB'],
-        'USER': os.environ['POSTGRES_USER'],
-        'PASSWORD': os.environ['POSTGRES_PASSWORD'],
-        'HOST': os.environ['DB_HOST'],
-        'PORT': os.environ['DB_PORT'],
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB", "alemno_db"),
+        "USER": os.getenv("POSTGRES_USER", "alemno"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "supersecret"),
+        "HOST": os.getenv("POSTGRES_HOST", "db"),   # "db" matches your compose service name
+        "PORT": os.getenv("POSTGRES_PORT", "5432"),
     }
 }
 
@@ -127,3 +134,35 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'core': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+    ],
+}

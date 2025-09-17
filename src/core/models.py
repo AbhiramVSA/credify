@@ -12,20 +12,21 @@ phone_validator = RegexValidator(
 class Customer(models.Model):
     """
     Represents a customer (customer_data).
-    Uses customer_id as the primary key because sample data includes explicit IDs.
+    Auto-generates customer_id and calculates approved_limit based on monthly_income.
     """
-    customer_id = models.PositiveIntegerField(primary_key=True)
+    customer_id = models.AutoField(primary_key=True)
     first_name = models.CharField(max_length=64)
-    last_name = models.CharField(max_length=64, blank=True)
-    age = models.PositiveSmallIntegerField(validators=[MinValueValidator(0)], null=True, blank=True)
-    phone_number = models.CharField(max_length=15, validators=[phone_validator], blank=True)
-    monthly_salary = models.DecimalField(
+    last_name = models.CharField(max_length=64)
+    age = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(120)])
+    phone_number = models.CharField(max_length=15, validators=[phone_validator])
+    monthly_income = models.DecimalField(
         max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Monthly salary in currency units."
+        help_text="Monthly income in currency units."
     )
     approved_limit = models.DecimalField(
         max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Approved credit/loan limit for the customer."
+        help_text="Approved credit/loan limit for the customer.",
+        blank=True
     )
     created = models.DateTimeField(auto_now_add=True)
 
@@ -33,6 +34,15 @@ class Customer(models.Model):
         verbose_name = "Customer"
         verbose_name_plural = "Customers"
         ordering = ["customer_id"]
+
+    def save(self, *args, **kwargs):
+        """Calculate approved_limit as 36 * monthly_income rounded to nearest lakh"""
+        if not self.approved_limit:
+            # Calculate 36 * monthly_income
+            calculated_limit = 36 * self.monthly_income
+            # Round to nearest lakh (100,000)
+            self.approved_limit = round(calculated_limit / 100000) * 100000
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.customer_id} — {self.first_name} {self.last_name}".strip()
