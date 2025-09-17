@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import RegexValidator, MinValueValidator, MaxValueValidator
 from decimal import Decimal
+import uuid
 
 
 phone_validator = RegexValidator(
@@ -12,9 +13,9 @@ phone_validator = RegexValidator(
 class Customer(models.Model):
     """
     Represents a customer (customer_data).
-    Auto-generates customer_id and calculates approved_limit based on monthly_income.
+    Uses UUID for customer_id and calculates approved_limit based on monthly_income.
     """
-    customer_id = models.AutoField(primary_key=True)
+    customer_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     first_name = models.CharField(max_length=64)
     last_name = models.CharField(max_length=64)
     age = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(120)])
@@ -51,12 +52,9 @@ class Customer(models.Model):
 class Loan(models.Model):
     """
     Represents a loan (loan_data). Linked to Customer via ForeignKey.
-    Assumes:
-      - tenure: total number of EMIs (months) or unit consistent with your data
-      - emis_paid_on_time: number of EMIs paid on time (integer)
-      - date_of_approval and end_date are stored as DateField
+    Uses UUID for loan_id for better security and uniqueness.
     """
-    loan_id = models.PositiveIntegerField(primary_key=True)
+    loan_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="loans")
     loan_amount = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal('0.00'))])
     tenure = models.PositiveIntegerField(validators=[MinValueValidator(0)], help_text="Total tenure (in months).")
