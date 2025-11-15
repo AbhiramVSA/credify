@@ -1,4 +1,4 @@
-# Alemno Backend (Django + DRF)
+# Credify
 
 A production-ready REST API for customer onboarding and loan underwriting. It supports customer registration, loan eligibility checks, loan creation, and viewing loans. All identifiers (customer_id, loan_id) are UUIDs.
 
