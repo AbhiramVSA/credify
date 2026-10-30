@@ -1,233 +1,78 @@
-# Credify
+<p align="center">
+  <img src="assets/credify-logo.png" alt="Customer record and eligibility check within a document shield" width="200">
+</p>
 
-A production-ready REST API for customer onboarding and loan underwriting. It supports customer registration, loan eligibility checks, loan creation, and viewing loans. All identifiers (customer_id, loan_id) are UUIDs.
+<h1 align="center">Credify</h1>
 
-- Framework: Django 5 + Django REST Framework
-- DB: PostgreSQL (Dockerized)
-- Python: 3.13 (container)
-- IDs: UUIDs
-- EMI calculation: Compound interest (monthly)
+<p align="center">A Django REST API for customer records, loan eligibility checks, and loan records.</p>
 
-## Features
+<div align="center">
 
-- Register customers with approved credit limits
-- Compute credit score and return corrected interest when needed
-- Create loans if eligible and persist them
-- View a loan by ID and list all loans for a customer
-- Robust validation and error handling with proper HTTP status codes
+[Overview](#overview) · [Run locally](#run-locally) · [API](#api) · [Data model](#data-model) · [Project notes](#project-notes)
 
-## Quick Start
+</div>
 
-### Prerequisites
-- Docker and Docker Compose (recommended)
-- Or: Python 3.12+, PostgreSQL 14+ (for local runs)
+## Overview
 
-### Environment
-Create a `.env` in the project root (used by docker-compose and settings):
+Credify stores customers and loans in PostgreSQL. Its API registers customers, checks loan eligibility, creates loans, and returns loan records. Customer and loan records use UUID identifiers.
 
-```env
-POSTGRES_DB=alemno_db
-POSTGRES_USER=alemno
-POSTGRES_PASSWORD=supersecret
-```
+The project uses Django and Django REST Framework. The container image uses Python 3.13.1; the project metadata requires Python 3.12 or newer.
 
-### Run with Docker
-```powershell
-docker compose up --build
-```
-- API base URL: `http://localhost:8000`
+## Run locally
 
-### Run locally (without Docker) on Windows (PowerShell)
-```powershell
+You need Python 3.12 or newer and a PostgreSQL database that the app can reach. From the repository root, install the declared packages in a virtual environment:
+
+```sh
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r src\requirements.txt
+. .venv/bin/activate
+python -m pip install -r src/requirements.txt
+```
 
-$env:POSTGRES_DB="alemno_db"
-$env:POSTGRES_USER="alemno"
-$env:POSTGRES_PASSWORD="supersecret"
-$env:POSTGRES_HOST="localhost"
-$env:POSTGRES_PORT="5432"
+On PowerShell, activate the environment with `.\.venv\Scripts\Activate.ps1`.
 
+Set these variables in the shell where Django will run: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `POSTGRES_PORT`. Point `POSTGRES_HOST` to your reachable database. Then run migrations and start Django:
+
+```sh
 cd src
 python manage.py migrate
 python manage.py runserver 8000
 ```
 
-## Project Structure
+The API listens at `http://localhost:8000`. Its root route returns API information.
 
-```
-src/
-    alemno/                # Django project settings/urls/wsgi
-    core/                  # App: models, serializers, views, urls
-    services/              # Business logic (eligibility, scoring, creation)
-    entrypoint.sh          # Container entrypoint running migrations + server
-    manage.py
-Dockerfile
-docker-compose.yml
-```
+The checked-in Docker Compose path is not a clean-checkout quick start. The root `.env` values are passed to PostgreSQL but not to the Django service, so they do not configure the app container. The Dockerfile also invokes `src/entrypoint.sh` directly, but Git tracks that script without executable permission. The Compose startup path needs both issues addressed before use. The local Python setup above assumes a separately reachable PostgreSQL database.
 
-## Data Model (simplified)
+## API
 
-- Customer
-    - customer_id (UUID, PK)
-    - first_name, last_name, age, phone_number
-    - monthly_income (Decimal)
-    - approved_limit (Decimal): 36 × monthly_income, rounded to nearest lakh (100,000)
+Routes are defined in [`src/core/urls.py`](src/core/urls.py). They do not use a trailing slash.
 
-- Loan
-    - loan_id (UUID, PK)
-    - customer (FK → Customer)
-    - loan_amount (Decimal)
-    - tenure (months, int)
-    - interest_rate (annual %, Decimal)
-    - monthly_payment (Decimal)
-    - emis_paid_on_time (int)
-    - date_of_approval, end_date (dates)
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `POST` | `/register` | Create a customer from a name, age, monthly income, and phone number. The API calculates an approved limit. |
+| `POST` | `/check-eligibility` | Check a loan request for an existing customer. Send `customer_id`, `loan_amount`, `interest_rate`, and `tenure`. |
+| `POST` | `/create-loan` | Evaluate and, when approved, create a loan for an existing customer. |
+| `GET` | `/view-loan/{loan_id}` | Return a loan and selected customer fields. |
+| `GET` | `/view-loans/{customer_id}` | List loans for a customer, including remaining repayments. |
 
-## API Overview
+For example, register a customer with:
 
-Base URL: `http://localhost:8000`
-
-### 1) Register a customer
-`POST /register`
-
-Request
-```json
-{
-    "first_name": "John",
-    "last_name": "Doe",
-    "age": 30,
-    "monthly_income": 50000,
-    "phone_number": "9876543210"
-}
+```sh
+curl -X POST http://localhost:8000/register \
+  -H 'Content-Type: application/json' \
+  -d '{"first_name":"Ada","last_name":"Lovelace","age":30,"monthly_income":50000,"phone_number":"9876543210"}'
 ```
 
-Response 201 Created
-```json
-{
-    "customer_id": "550e8400-e29b-41d4-a716-446655440000",
-    "name": "John Doe",
-    "age": 30,
-    "monthly_income": 50000.0,
-    "approved_limit": 1800000.0,
-    "phone_number": "9876543210"
-}
-```
+Eligibility and loan creation accept a UUID customer ID, a positive loan amount, an annual interest rate, and a tenure in months. The serializers limit interest rates to 100 percent and tenure to 600 months. See [`src/core/serializers.py`](src/core/serializers.py) for request validation and response fields.
 
-### 2) Check loan eligibility
-`POST /check-eligibility`
+## Data model
 
-Request
-```json
-{
-    "customer_id": "550e8400-e29b-41d4-a716-446655440000",
-    "loan_amount": 500000,
-    "interest_rate": 10.5,
-    "tenure": 36
-}
-```
+- **Customer:** UUID, name, age, phone number, monthly income, and approved limit. The model sets the limit to 36 times monthly income, rounded to the nearest 100,000 when no limit is supplied.
+- **Loan:** UUID, customer reference, amount, annual interest rate, tenure, monthly payment, and repayment dates. Remaining repayments are calculated from the tenure and the number of EMIs paid on time.
 
-Response 200 OK (example)
-```json
-{
-    "customer_id": "550e8400-e29b-41d4-a716-446655440000",
-    "approval": true,
-    "interest_rate": 10.5,
-    "corrected_interest_rate": 10.5,
-    "tenure": 36,
-    "monthly_installment": 16134.33
-}
-```
+The API’s eligibility and installment logic is implemented in [`src/core/views.py`](src/core/views.py). Review it before using these calculations for financial decisions.
 
-### 3) Create a loan
-`POST /create-loan`
+## Project notes
 
-Request
-```json
-{
-    "customer_id": "550e8400-e29b-41d4-a716-446655440000",
-    "loan_amount": 500000,
-    "interest_rate": 10.5,
-    "tenure": 36
-}
-```
-
-Response 201 Created (approved)
-```json
-{
-    "loan_id": "660e8400-e29b-41d4-a716-446655440001",
-    "customer_id": "550e8400-e29b-41d4-a716-446655440000",
-    "loan_approved": true,
-    "message": "Loan approved",
-    "monthly_installment": 16134.33
-}
-```
-
-### 4) View a loan by ID
-`GET /view-loan/{loan_id}`
-
-Response 200 OK (example)
-```json
-{
-    "loan_id": "660e8400-e29b-41d4-a716-446655440001",
-    "customer": {
-        "id": "550e8400-e29b-41d4-a716-446655440000",
-        "first_name": "John",
-        "last_name": "Doe",
-        "phone_number": "9876543210",
-        "age": 30
-    },
-    "loan_amount": 500000.0,
-    "interest_rate": 10.5,
-    "monthly_installment": 16134.33,
-    "tenure": 36
-}
-```
-
-### 5) View all loans for a customer
-`GET /view-loans/{customer_id}`
-
-Response 200 OK (list)
-```json
-[
-    {
-        "loan_id": "660e8400-e29b-41d4-a716-446655440001",
-        "loan_amount": 500000.0,
-        "interest_rate": 10.5,
-        "monthly_installment": 16134.33,
-        "repayments_left": 36
-    }
-]
-```
-
-## Financial Notes
-
-- EMI uses monthly compounding: r = (annual_rate/100)/12. Uses Decimal internally.
-- approved_limit = 36 × monthly_income, rounded to nearest lakh (100,000).
-
-## Troubleshooting
-
-- Postgres not ready: docker compose waits on DB healthcheck; if flapping, run `docker compose down -v && docker compose up --build`.
-- DisallowedHost: ensure `ALLOWED_HOSTS` in settings includes your host.
-- Migrations on start: container entrypoint runs `python manage.py migrate` automatically.
-- Port conflict: change `"8000:8000"` in docker-compose.
-
-## Production Tips
-
-- Set strong `SECRET_KEY`, disable `DEBUG`, set `ALLOWED_HOSTS` properly.
-- Run behind a reverse proxy (Nginx) and serve via Gunicorn/Uvicorn.
-- Use managed Postgres, enable backups, monitor connections.
-- Apply migrations in CI/CD before deploy.
-- Configure structured logging to stdout or a sink.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for changes
-4. Open a pull request with context
-
-## License
-
-Add a license file (e.g., MIT) at the repo root.
+- Compose defines an API service on host port `8000` and a separate PostgreSQL service. Its database environment is not passed to the Django service.
+- The container entrypoint is written to run migrations, but the current executable mode prevents the Dockerfile command from launching it from a clean checkout.
+- The repository does not include a root license file.
