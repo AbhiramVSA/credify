@@ -20,17 +20,27 @@ The project uses Django and Django REST Framework. The container image uses Pyth
 
 ## Run locally
 
-You need Docker Compose. Before startup, configure the root `.env` file with values for `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`. The compose file passes these values to PostgreSQL. Keep the file private.
-
-From the repository root, start the API and database:
+You need Python 3.12 or newer and a PostgreSQL database that the app can reach. From the repository root, install the declared packages in a virtual environment:
 
 ```sh
-docker compose up --build
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -r src/requirements.txt
 ```
 
-The API listens at `http://localhost:8000`. The root route returns API information. Stop the services with `Ctrl+C`; run `docker compose down` to remove the containers. The database volume remains unless you remove it.
+On PowerShell, activate the environment with `.\.venv\Scripts\Activate.ps1`.
 
-For a local Python setup, install the packages in `src/requirements.txt`, provide a reachable PostgreSQL database through `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `POSTGRES_PORT`, then run migrations and Django from `src/`. The included container setup is the shortest documented path.
+Set these variables in the shell where Django will run: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, and `POSTGRES_PORT`. Point `POSTGRES_HOST` to your reachable database. Then run migrations and start Django:
+
+```sh
+cd src
+python manage.py migrate
+python manage.py runserver 8000
+```
+
+The API listens at `http://localhost:8000`. Its root route returns API information.
+
+The checked-in Docker Compose path is not a clean-checkout quick start. The root `.env` values are passed to PostgreSQL but not to the Django service, so they do not configure the app container. The Dockerfile also invokes `src/entrypoint.sh` directly, but Git tracks that script without executable permission. The Compose startup path needs both issues addressed before use. The local Python setup above assumes a separately reachable PostgreSQL database.
 
 ## API
 
@@ -63,6 +73,6 @@ The API’s eligibility and installment logic is implemented in [`src/core/views
 
 ## Project notes
 
-- Compose maps the API to host port `8000` and runs PostgreSQL as a separate service.
-- The app container runs database migrations when it starts.
+- Compose defines an API service on host port `8000` and a separate PostgreSQL service. Its database environment is not passed to the Django service.
+- The container entrypoint is written to run migrations, but the current executable mode prevents the Dockerfile command from launching it from a clean checkout.
 - The repository does not include a root license file.
