@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/credify-mark.svg" alt="Credify ledger mark" width="112">
+  <img src="assets/credify-logo.png" alt="Customer record and eligibility check within a document shield" width="200">
 </p>
 
 <h1 align="center">Credify</h1>
