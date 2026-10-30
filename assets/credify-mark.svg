@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Credify ledger mark</title>
+  <desc id="desc">A teal ledger card with two aligned entries and a gold approval check.</desc>
+  <rect x="14" y="13" width="100" height="102" rx="24" fill="#102a43"/>
+  <path d="M42 13v102" stroke="#48c6b5" stroke-width="8"/>
+  <path d="M58 42h37M58 61h27M58 80h19" fill="none" stroke="#e7f5f2" stroke-linecap="round" stroke-width="7"/>
+  <circle cx="91" cy="89" r="19" fill="#f2b84b"/>
+  <path d="m82 89 6 6 12-14" fill="none" stroke="#102a43" stroke-linecap="round" stroke-linejoin="round" stroke-width="5"/>
+</svg>
